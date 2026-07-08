@@ -1,676 +1,200 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>LogiFreight — Carga Pesada</title>
-  
-  <!-- Configuração de Ambiente -->
-  <script src="config.js"></script>
-  
-  <!-- Estilo e Mapa -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <style>
-    * { -webkit-tap-highlight-color: transparent; }
-    body { 
-      font-family: 'Inter', sans-serif; 
-      background: #0f172a; 
-      color: #f1f5f9; 
-      overscroll-behavior: none;
-    }
-    
-    /* Esconde scrollbars mas mantém scroll funcional */
-    .hide-scrollbar::-webkit-scrollbar { display: none; }
-    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-    /* Mapa */
-    #map { height: 100%; width: 100%; z-index: 1; background: #0f172a; }
-    .leaflet-control-attribution { display: none !important; }
-
-    /* Animações suaves */
-    .screen { 
-      transition: opacity 0.3s ease, transform 0.3s ease; 
-      opacity: 0; 
-      transform: translateY(10px); 
-      pointer-events: none; 
-      position: absolute; 
-      width: 100%; 
-    }
-    .screen.active { 
-      opacity: 1; 
-      transform: translateY(0); 
-      pointer-events: auto; 
-      position: relative; 
-    }
-
-    /* Botão primário gigante (Estilo Uber) */
-    .btn-uber-primary { 
-      background: #22c55e; 
-      color: #0f172a; 
-      font-weight: 700; 
-      font-size: 16px; 
-      padding: 16px; 
-      border-radius: 12px; 
-      width: 100%; 
-      border: none; 
-      box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4);
-      transition: all 0.2s;
-    }
-    .btn-uber-primary:active { transform: scale(0.98); background: #16a34a; }
-
-    /* Cards de vidro fosco */
-    .glass-card { 
-      background: rgba(30, 41, 59, 0.95); 
-      backdrop-filter: blur(12px); 
-      border-top: 1px solid rgba(148, 163, 184, 0.1); 
-      border-radius: 20px; 
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    }
-
-    /* Inputs escuros limpos */
-    .input-dark { 
-      background: rgba(15, 23, 42, 0.6); 
-      border: 1px solid rgba(148, 163, 184, 0.2); 
-      border-radius: 12px; 
-      padding: 14px 16px; 
-      color: white; 
-      font-size: 15px; 
-      width: 100%; 
-      outline: none; 
-      transition: border 0.2s;
-    }
-    .input-dark:focus { border-color: #38bdf8; }
-    .input-dark::placeholder { color: #64748b; }
-
-    /* Loading spinner */
-    .spinner { 
-      border: 3px solid rgba(148, 163, 184, 0.2); 
-      border-top: 3px solid #38bdf8; 
-      border-radius: 50%; 
-      width: 24px; 
-      height: 24px; 
-      animation: spin 0.8s linear infinite; 
-      margin: 0 auto; 
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Toast */
-    .toast-notification { 
-      position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-100px); 
-      background: #1e293b; color: white; padding: 14px 24px; border-radius: 12px; 
-      font-weight: 500; font-size: 14px; z-index: 9999; 
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-      display: flex; align-items: center; gap: 10px;
-    }
-    .toast-notification.show { transform: translateX(-50%) translateY(0); }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>LogiFreight</title>
+<script src="config.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+body{font-family:system-ui,sans-serif;background:#0f172a;color:#f1f5f9;margin:0;overflow-x:hidden}
+*{-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{display:none}
+.scr{transition:opacity .3s;opacity:0;pointer-events:none;position:absolute;width:100%}
+.scr.on{opacity:1;pointer-events:auto;position:relative}
+#map{height:100%;width:100%;z-index:1;background:#0f172a}
+.leaflet-control-attribution{display:none!important}
+.g{background:rgba(30,41,59,.95);backdrop-filter:blur(12px);border-top:1px solid rgba(148,163,184,.1);border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.i{background:rgba(15,23,42,.6);border:1px solid rgba(148,163,184,.2);border-radius:12px;padding:14px;color:#fff;font-size:15px;width:100%;outline:none;box-sizing:border-box}
+.i:focus{border-color:#38bdf8}
+.i::placeholder{color:#64748b}
+.b{color:#0f172a;font-weight:700;font-size:16px;padding:16px;border-radius:12px;width:100%;border:none;cursor:pointer}
+.b:active{transform:scale(.98)}
+.bg{background:#22c55e;box-shadow:0 4px 14px rgba(34,197,94,.4)}
+.bs{background:#38bdf8;box-shadow:0 4px 14px rgba(56,189,248,.4)}
+.ba{background:#f59e0b;box-shadow:0 4px 14px rgba(245,158,11,.4)}
+.sp{border:3px solid rgba(148,163,184,.2);border-top:3px solid #38bdf8;border-radius:50%;width:24px;height:24px;animation:spin .8s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.t{position:fixed;top:24px;left:50%;transform:translateX(-50%) translateY(-100px);background:#1e293b;color:#fff;padding:14px 24px;border-radius:12px;font-weight:500;font-size:14px;z-index:9999;border:1px solid rgba(148,163,184,.2);box-shadow:0 10px 30px rgba(0,0,0,.5);transition:transform .4s cubic-bezier(.175,.885,.32,1.275)}
+.t.show{transform:translateX(-50%) translateY(0)}
+</style>
 </head>
-<body class="pb-24 overflow-x-hidden hide-scrollbar">
+<body class="pb-24">
 
-  <!-- Toast de Notificação -->
-  <div id="toast" class="toast-notification">
-    <span id="toast-icon">✅</span>
-    <span id="toast-msg">Sucesso!</span>
-  </div>
+<div id="toast" class="t"><span id="t-m"></span></div>
 
-  <!-- TELA 1: PUBLICAR DEMANDA (Embarcador) -->
-  <div id="screen-publish" class="screen active px-5 pt-6 pb-10 max-w-lg mx-auto">
-    <div class="mb-8">
-      <h1 class="text-3xl font-extrabold tracking-tight text-white mb-1">Logi<span class="text-sky-400">Freight</span></h1>
-      <p class="text-slate-400 text-sm">Transporte inteligente de carga pesada</p>
-    </div>
+<!-- TELA 1: PUBLICAR -->
+<div id="s1" class="scr on px-5 pt-6 pb-10 max-w-lg mx-auto">
+<h1 class="text-3xl font-extrabold text-white mb-1">Logi<span class="text-sky-400">Freight</span></h1>
+<p class="text-slate-400 text-sm mb-8">Transporte inteligente de carga pesada</p>
+<div class="g p-5 mb-6">
+<div class="flex items-center gap-3 mb-4 border-b border-slate-700/50 pb-4">
+<div class="w-3 h-3 rounded-full bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.6)]"></div>
+<input type="text" id="i-emp" placeholder="Razão Social da Empresa" class="i !border-0 !p-0 !shadow-none !bg-transparent">
+</div>
+<div class="relative mb-3">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-slate-700 rounded-full ml-5"></div>
+<div class="flex items-start gap-3 pl-6"><div class="mt-4 w-2.5 h-2.5 rounded-full bg-white border-2 border-sky-400 -ml-1"></div><select id="s-ori" class="i !border-0 !p-0 !shadow-none !bg-transparent"></select></div>
+<div class="flex items-end gap-3 pl-6"><div class="mb-4 w-2.5 h-2.5 rounded-sm bg-slate-400 -ml-1"></div><select id="s-dst" class="i !border-0 !p-0 !shadow-none !bg-transparent"></select></div>
+</div>
+<button onclick="document.getElementById('bx-d').classList.toggle('hidden')" class="text-sky-400 text-sm font-semibold mb-4 text-left w-full">Adicionar detalhes da carga ↓</button>
+<div id="bx-d" class="hidden space-y-3 border-t border-slate-700/50 pt-4">
+<div class="grid grid-cols-2 gap-3">
+<div><label class="text-xs text-slate-500 font-semibold uppercase">Peso (Ton)</label><input type="number" id="i-peso" step="0.5" placeholder="32" class="i mt-1"></div>
+<div><label class="text-xs text-slate-500 font-semibold uppercase">Cubagem (m³)</label><input type="number" id="i-cub" placeholder="85" class="i mt-1"></div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div><label class="text-xs text-slate-500 font-semibold uppercase">Veículo</label><select id="s-veic" class="i mt-1"></select></div>
+<div><label class="text-xs text-slate-500 font-semibold uppercase">Carga</label><select id="s-tipo" class="i mt-1"></select></div>
+</div>
+<select id="s-urg" class="i"><option value="padrao">Padrão</option><option value="urgente">Urgente (+25%)</option><option value="expresso">Expresso (+50%)</option></select>
+</div>
+</div>
+<button id="btn-pub" onclick="pub()" class="b bg">Buscar Motoristas Disponíveis</button>
 
-    <!-- Card de Pesquisa Principal (Estilo Uber) -->
-    <div class="glass-card p-5 mb-6">
-      <div class="flex items-center gap-3 mb-4 border-b border-slate-700/50 pb-4">
-        <div class="w-3 h-3 rounded-full bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.6)]"></div>
-        <input type="text" id="inp-empresa" placeholder="Razão Social da Empresa" class="input-dark !border-0 !p-0 !shadow-none !bg-transparent focus:!ring-0 text-base">
-      </div>
-      
-      <div class="relative mb-3">
-        <div class="absolute left-0 top-0 bottom-0 w-1 bg-slate-700 rounded-full ml-5"></div>
-        <div class="flex items-start gap-3 pl-6">
-          <div class="mt-4 w-2.5 h-2.5 rounded-full bg-white border-2 border-sky-400 -ml-1"></div>
-          <select id="sel-origem" class="input-dark !border-0 !p-0 !shadow-none !bg-transparent focus:!ring-0 text-base font-medium mb-2"></select>
-        </div>
-        <div class="flex items-end gap-3 pl-6">
-          <div class="mb-4 w-2.5 h-2.5 rounded-sm bg-slate-400 -ml-1"></div>
-          <select id="sel-destino" class="input-dark !border-0 !p-0 !shadow-none !bg-transparent focus:!ring-0 text-base font-medium"></select>
-        </div>
-      </div>
+<div id="bx-res" class="hidden mt-8 space-y-6">
+<div class="g p-5">
+<h3 class="text-xs font-bold text-slate-400 uppercase mb-4">Precificação</h3>
+<div class="grid grid-cols-3 gap-4 text-center">
+<div><div class="text-slate-500 text-xs">Piso ANTT</div><div class="text-xl font-bold" id="r-piso">-</div></div>
+<div><div class="text-slate-500 text-xs">Valor Frete</div><div class="text-xl font-bold text-green-400" id="r-val">-</div></div>
+<div><div class="text-slate-500 text-xs">Líquido Mot.</div><div class="text-xl font-bold text-sky-400" id="r-liq">-</div></div>
+</div></div>
+<h3 class="text-xs font-bold text-slate-400 uppercase px-1">Motoristas no Raio</h3>
+<div id="l-mot" class="space-y-3"></div>
+</div>
 
-      <button onclick="toggleDetalhes()" class="text-sky-400 text-sm font-semibold flex items-center gap-1 mb-4">
-        <span id="txt-toggle">Adicionar detalhes da carga</span>
-        <svg id="icon-toggle" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-      </button>
+<h2 class="text-lg font-bold text-white mt-10 mb-4">Suas Demandas</h2>
+<input type="text" id="i-filt" placeholder="Filtrar por empresa..." class="i mb-4" onkeydown="if(event.key==='Enter')loadHist()">
+<div id="l-hist" class="space-y-3 text-slate-500 text-sm text-center pt-4">Publique uma demanda.</div>
+</div>
 
-      <div id="box-detalhes" class="hidden space-y-3 border-t border-slate-700/50 pt-4">
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Peso (Ton)</label>
-            <input type="number" id="inp-peso" step="0.5" placeholder="Ex: 32" class="input-dark mt-1">
-          </div>
-          <div>
-            <label class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Cubagem (m³)</label>
-            <input type="number" id="inp-cubagem" placeholder="Ex: 85" class="input-dark mt-1">
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Veículo Req.</label>
-            <select id="sel-veiculo" class="input-dark mt-1"></select>
-          </div>
-          <div>
-            <label class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Tipo de Carga</label>
-            <select id="sel-tipo" class="input-dark mt-1"></select>
-          </div>
-        </div>
-        <div>
-          <label class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Urgência</label>
-          <select id="sel-urgencia" class="input-dark mt-1">
-            <option value="padrao">Padrão</option>
-            <option value="urgente">Urgente (+25%)</option>
-            <option value="expresso">Expresso (+50%)</option>
-          </select>
-        </div>
-      </div>
-    </div>
+<!-- TELA 2: MAPA -->
+<div id="s2" class="scr">
+<div id="map"></div>
+<div class="fixed top-0 left-0 right-0 z-10 p-4 pt-6">
+<div class="g p-4 max-w-xl mx-auto flex justify-between items-center">
+<div class="flex-1 mr-4">
+<div class="text-xs text-slate-400">Modo Motorista</div>
+<select id="s-mot" onchange="initMap()" class="bg-transparent text-white font-bold text-base outline-none w-full"></select>
+</div>
+<div id="badge" class="text-xs font-bold px-3 py-1.5 rounded-full bg-slate-700 text-slate-400">OFFLINE</div>
+</div></div>
+<div id="c-flut" class="fixed bottom-24 left-4 right-4 z-10 max-w-xl mx-auto hidden"><div class="g p-6"><div id="c-cont"></div></div></div>
+<button id="b-sim" onclick="simStep()" class="hidden fixed bottom-48 right-4 z-10 ba text-slate-900 font-bold py-4 px-6 rounded-full shadow-lg flex items-center gap-3" style="left:50%;transform:translateX(-50%)">▶ Avançar Trecho (+10%)</button>
+</div>
 
-    <button id="btn-publicar" onclick="publicarDemanda()" class="btn-uber-primary">
-      Buscar Motoristas Disponíveis
-    </button>
+<!-- TELA 3: DOCS -->
+<div id="s3" class="scr px-5 pt-6 pb-10 max-w-lg mx-auto">
+<h1 class="text-3xl font-extrabold text-white mb-1">Documentos</h1>
+<p class="text-slate-400 text-sm mb-8">Gestão de NF-e, CT-e e MDF-e</p>
+<input type="text" id="i-fdoc" placeholder="Buscar por empresa..." class="i mb-6" onkeydown="if(event.key==='Enter')loadDocs()">
+<div id="l-docs" class="space-y-4 text-slate-500 text-sm text-center pt-10">Insira o nome da empresa.</div>
+</div>
 
-    <!-- Resultados da Precificação e Match -->
-    <div id="box-resultados" class="hidden mt-8 space-y-6">
-      <div class="glass-card p-5">
-        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Análise de Precificação</h3>
-        <div class="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <div class="text-slate-500 text-xs mb-1">Piso ANTT</div>
-            <div class="text-xl font-bold text-slate-300" id="res-piso">-</div>
-          </div>
-          <div>
-            <div class="text-slate-500 text-xs mb-1">Valor Frete</div>
-            <div class="text-xl font-bold text-green-400" id="res-valor">-</div>
-          </div>
-          <div>
-            <div class="text-slate-500 text-xs mb-1">Líquido Mot.</div>
-            <div class="text-xl font-bold text-sky-400" id="res-liquido">-</div>
-          </div>
-        </div>
-      </div>
+<!-- NAV -->
+<nav class="fixed bottom-0 left-0 right-0 z-50 bg-[#0f172a] border-t border-slate-800/80 px-2 pb-2 pt-1">
+<div class="flex justify-around max-w-xl mx-auto">
+<button onclick="go('s1','n1')" class="flex flex-col items-center p-2 rounded-xl text-sky-400" id="n1">
+<svg class="w-6 h-6 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+<span class="text-[10px] font-semibold">Publicar</span>
+</button>
+<button onclick="go('s2','n2')" class="flex flex-col items-center p-2 rounded-xl text-slate-500" id="n2">
+<svg class="w-6 h-6 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+<span class="text-[10px] font-semibold">Rastrear</span>
+</button>
+<button onclick="go('s3','n3')" class="flex flex-col items-center p-2 rounded-xl text-slate-500" id="n3">
+<svg class="w-6 h-6 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+<span class="text-[10px] font-semibold">Docs</span>
+</button>
+</div></nav>
 
-      <div>
-        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Motoristas Disponíveis no Raio</h3>
-        <div id="lista-motoristas" class="space-y-3"></div>
-      </div>
-    </div>
+<div id="ld" class="fixed inset-0 bg-[#0f172a] z-[100] flex items-center justify-center">
+<div class="text-center"><h1 class="text-5xl font-extrabold text-white mb-6">Logi<span class="text-sky-400">Freight</span></h1><div class="sp mb-4"></div><p class="text-slate-400 text-sm">Conectando...</p></div>
+</div>
 
-    <!-- Histórico Simplificado -->
-    <div class="mt-10">
-      <div class="flex justify-between items-center mb-4 px-1">
-        <h2 class="text-lg font-bold text-white">Suas Demandas</h2>
-      </div>
-      <input type="text" id="inp-filtro-historico" placeholder="Filtrar por empresa..." class="input-dark mb-4" onkeydown="if(event.key==='Enter') carregarHistorico()">
-      <div id="lista-historico" class="space-y-3 text-slate-500 text-sm text-center pt-4">
-        Publique uma demanda para ver o histórico.
-      </div>
-    </div>
-  </div>
+<script>
+var A=PISAPP_API_URL||'', D={}, map, mO, mD, mM, rL, cacheF=null;
+var icM=L.divIcon({className:'',html:'<div style="width:20px;height:20px;background:#38bdf8;border:3px solid white;border-radius:50%;box-shadow:0 0 15px rgba(56,189,248,0.8)"></div>',iconSize:[20,20],iconAnchor:[10,10]});
+var icD=L.divIcon({className:'',html:'<div style="width:24px;height:24px;background:#22c55e;border:3px solid white;border-radius:50%;box-shadow:0 0 15px rgba(34,197,94,0.8)"></div>',iconSize:[24,24],iconAnchor:[12,12]});
 
-  <!-- TELA 2: MAPA E RASTREAMENTO (Motorista) -->
-  <div id="screen-map" class="screen">
-    <div id="map"></div>
-    
-    <!-- Header Flutuante do Mapa -->
-    <div class="fixed top-0 left-0 right-0 z-10 p-4 pt-6">
-      <div class="glass-card p-4 max-w-xl mx-auto">
-        <div class="flex justify-between items-center">
-          <div class="flex-1 mr-4">
-            <div class="text-xs text-slate-400 font-medium mb-1">Modo Motorista</div>
-            <select id="sel-motorista" onchange="inicializarTelaMotorista()" class="bg-transparent text-white font-bold text-base outline-none w-full cursor-pointer"></select>
-          </div>
-          <div id="badge-status" class="text-xs font-bold px-3 py-1.5 rounded-full bg-slate-700 text-slate-400 whitespace-nowrap">
-            OFFLINE
-          </div>
-        </div>
-      </div>
-    </div>
+function t(m,e){var el=document.getElementById('toast');document.getElementById('t-m').textContent=m;el.className='t show';setTimeout(()=>el.classList.remove('show'),3000)}
+function fm(v){return 'R$ '+Number(v).toFixed(2).replace('.',',')}
+function ts(s){return{aguardando_motorista:'Aguardando',alocado:'Alocado',coletado:'Coletado',em_transito:'Em Trânsito',entregue:'Entregue',cancelado:'Cancelado'}[s]||s}
 
-    <!-- Card Inferior Flutuante (Estilo Uber) -->
-    <div id="card-flutuante" class="fixed bottom-24 left-4 right-4 z-10 max-w-xl mx-auto hidden">
-      <div class="glass-card p-6">
-        <div id="conteudo-card-flutuante"></div>
-      </div>
-    </div>
+function jp(a,p,cb){if(!A)return t("API não configurada.",1);p.callback='c_'+Date.now();p.action=a;var s=document.createElement('script');s.src=A+(A.indexOf('?')>=0?'&':'?')+Object.keys(p).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(p[k])).join('&');window[p.callback]=d=>{delete window[p.callback];s.remove();cb(d)};document.head.appendChild(s)}
+function po(a,d,cb){if(!A)return t("API não configurada.",1);d.action=a;fetch(A,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(d)}).then(r=>r.json()).then(cb).catch(e=>t(e.message,1))}
 
-    <!-- Botão de Simulação de Trânsito -->
-    <button id="btn-simulacao" onclick="avancarSimulacao()" class="hidden fixed bottom-48 right-4 z-10 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold py-4 px-6 rounded-full shadow-lg flex items-center gap-3 transition-transform active:scale-95" style="left: 50%; transform: translateX(-50%);">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-      Avançar Trecho (+10%)
-    </button>
-  </div>
+function go(s,n){document.querySelectorAll('.scr').forEach(e=>e.classList.remove('on'));document.querySelectorAll('nav button').forEach(b=>{b.classList.remove('text-sky-400');b.classList.add('text-slate-500')});document.getElementById(s).classList.add('on');var b=document.getElementById(n);b.classList.remove('text-slate-500');b.classList.add('text-sky-400');if(s==='s2')setTimeout(initMap,150);if(s==='s3')loadDocs()}
 
-  <!-- TELA 3: GESTÃO DE DOCUMENTOS -->
-  <div id="screen-docs" class="screen px-5 pt-6 pb-10 max-w-lg mx-auto">
-    <div class="mb-8">
-      <h1 class="text-3xl font-extrabold tracking-tight text-white mb-1">Documentos</h1>
-      <p class="text-slate-400 text-sm">Gestão de NF-e, CT-e e MDF-e</p>
-    </div>
+function init(r){
+if(!r.ok)return t('Falha ao conectar.',1);D=r.data;
+var o=document.getElementById('s-ori'),d=document.getElementById('s-dst'),v=document.getElementById('s-veic'),tp=document.getElementById('s-tipo'),m=document.getElementById('s-mot');
+o.innerHTML='<option value="" disabled selected>Origem</option>';d.innerHTML='<option value="" disabled selected>Destino</option>';v.innerHTML='<option value="" disabled selected>Veículo</option>';tp.innerHTML='<option value="" disabled selected>Tipo</option>';m.innerHTML='<option value="" disabled selected>Motorista</option>';
+D.cidades.forEach(c=>{o.add(new Option(c,c));d.add(new Option(c,c))});
+D.tiposVeiculos.forEach(c=>v.add(new Option(c,c)));
+D.tiposCarga.forEach(c=>{var l=c.replace(/_/g,' ');tp.add(new Option(l,c))});
+D.motoristas.forEach(c=>m.add(new Option(c.nome+' ('+c.capacidade+'T)',c.id)));
+document.getElementById('ld').style.display='none';go('s1','n1');
+}
 
-    <input type="text" id="inp-filtro-docs" placeholder="Buscar por empresa embarcadora..." class="input-dark mb-6" onkeydown="if(event.key==='Enter') carregarDocumentos()">
-    
-    <div id="lista-documentos" class="space-y-4 text-slate-500 text-sm text-center pt-10">
-      <svg class="w-16 h-16 mx-auto mb-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-      Insira o nome da empresa para visualizar as documentações fiscais.
-    </div>
-  </div>
+function pub(){
+var d={embarcador:document.getElementById('i-emp').value.trim(),origem:document.getElementById('s-ori').value,destino:document.getElementById('s-dst').value,pesoToneladas:Number(document.getElementById('i-peso').value),cubagemM3:Number(document.getElementById('i-cub').value)||0,veiculoRequisitado:document.getElementById('s-veic').value,tipoCarga:document.getElementById('s-tipo').value,urgencia:document.getElementById('s-urg').value};
+if(!d.embarcador||!d.origem||!d.destino||!d.pesoToneladas)return t('Preencha obrigatórios.',1);
+var b=document.getElementById('btn-pub');b.innerHTML='<div class="sp"></div>';b.disabled=true;
+po('criarFrete',d,r=>{
+b.innerHTML='Buscar Motoristas Disponíveis';b.disabled=false;if(!r.ok)return t(r.msg,1);
+var res=r.data;
+document.getElementById('r-piso').textContent=fm(res.precificacao.pisoAntt);document.getElementById('r-val').textContent=fm(res.precificacao.valorSugerido);document.getElementById('r-liq').textContent=fm(res.precificacao.valorLiquidoMotorista);
+document.getElementById('l-mot').innerHTML=res.candidatos.length?res.candidatos.map((c,i)=>`<div class="g p-4 flex justify-between items-center"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-sky-400 font-bold">${i+1}</div><div><div class="font-bold text-sm">${c.nome}</div><div class="text-xs text-slate-400">${c.veiculo} • ${c.distanciaKm}km</div></div></div><div class="text-right"><div class="text-amber-400 font-extrabold text-lg">${c.score}</div><div class="text-[10px] text-slate-500 uppercase font-bold">Score</div></div></div>`).join(''):'<div class="text-slate-500 text-center py-4">Nenhum motorista.</div>';
+document.getElementById('bx-res').classList.remove('hidden');document.getElementById('i-filt').value=d.embarcador;loadHist();t('Demanda publicada!');
+})}
 
-  <!-- MENU INFERIOR (Navegação Principal) -->
-  <nav class="fixed bottom-0 left-0 right-0 z-50 bg-[#0f172a] border-t border-slate-800/80 px-2 pb-2 pt-1">
-    <div class="flex justify-around max-w-xl mx-auto">
-      <button onclick="mudarTela('publish')" class="nav-item flex flex-col items-center p-2 rounded-xl transition-colors text-sky-400" id="nav-publish">
-        <svg class="w-6 h-6 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-        <span class="text-[10px] font-semibold">Publicar</span>
-      </button>
-      <button onclick="mudarTela('map')" class="nav-item flex flex-col items-center p-2 rounded-xl transition-colors text-slate-500" id="nav-map">
-        <svg class="w-6 h-6 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-        <span class="text-[10px] font-semibold">Rastrear</span>
-      </button>
-      <button onclick="mudarTela('docs')" class="nav-item flex flex-col items-center p-2 rounded-xl transition-colors text-slate-500" id="nav-docs">
-        <svg class="w-6 h-6 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-        <span class="text-[10px] font-semibold">Docs</span>
-      </button>
-    </div>
-  </nav>
+function loadHist(){var e=document.getElementById('i-filt').value.trim();if(!e)return;var el=document.getElementById('l-hist');el.innerHTML='<div class="sp py-4"></div>';jp('listarMeusFretes',{embarcador:e},r=>{if(!r.data||!r.data.length){el.innerHTML='Nenhum frete.';return}el.innerHTML=r.data.map(f=>{var cl=f.status==='entregue'?'text-green-400 bg-green-900/30':'text-sky-400 bg-sky-900/30';return`<div class="g p-4"><div class="flex justify-between items-start mb-2"><div><span class="font-bold">${f.origem} → ${f.destino}</span><div class="text-xs text-slate-500 mt-0.5">${f.pesoToneladas}T • ${f.veiculoRequisitado}</div></div><span class="text-[10px] font-bold px-2 py-1 rounded-full ${cl} uppercase">${ts(f.status)}</span></div><div class="flex justify-between items-end"><span class="text-xs text-slate-500">${f.distanciaKm}km</span><span class="text-green-400 font-extrabold text-lg">${fm(f.valorSugerido)}</span></div></div>`}).join('')})}
 
-  <!-- Tela de Loading Inicial -->
-  <div id="loading-screen" class="fixed inset-0 bg-[#0f172a] z-[100] flex items-center justify-center">
-    <div class="text-center">
-      <h1 class="text-5xl font-extrabold text-white mb-6">Logi<span class="text-sky-400">Freight</span></h1>
-      <div class="spinner mb-4"></div>
-      <p class="text-slate-400 text-sm font-medium">Conectando ao servidor...</p>
-    </div>
-  </div>
+function initMap(){if(!map){map=L.map('map',{zoomControl:false,attributionControl:false}).setView([-23.5,-46.6],6);L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map)}else{map.invalidateSize()}
+var id=document.getElementById('s-mot').value;if(!id)return;
+jp('buscarPainelMotorista',{motoristaId:id},r=>{if(!r.ok)return;var p=r.data;var bg=document.getElementById('badge');bg.textContent=p.disponivel?'🟢 ONLINE':'🔴 OCUPADO';bg.className='text-xs font-bold px-3 py-1.5 rounded-full '+(p.disponivel?'bg-green-900/50 text-green-400':'bg-red-900/50 text-red-400');map.setView([p.latitude,p.longitude],7);if(mM)map.removeLayer(mM);mM=L.marker([p.latitude,p.longitude],{icon:icM}).addTo(map).bindPopup('<b>'+p.nome+'</b>');renderCard(id)})}
 
-  <script>
-    // ==========================================
-    // ESTADO GLOBAL DA APLICAÇÃO
-    // ==========================================
-    var API_URL = (typeof PISAPP_API_URL !== 'undefined') ? PISAPP_API_URL : '';
-    var DADOS_APP = {};
-    var mapaLeaflet = null;
-    var marcadorOrigem = null, marcadorDestino = null, marcadorMotorista = null, linhaRota = null;
-    var freteAtivoCache = null;
+function renderCard(id){
+var c=document.getElementById('c-flut'),b=document.getElementById('b-sim');b.classList.add('hidden');
+jp('buscarFreteAtivo',{motoristaId:id},r=>{
+if(!r.ok||!r.data){
+jp('buscarOfertasMotorista',{motoristaId:id},res=>{
+if(!res.data||!res.data.length){c.classList.add('hidden');return}c.classList.remove('hidden');var f=res.data[0];
+document.getElementById('c-cont').innerHTML=`<div class="text-center mb-6"><p class="text-slate-400 text-xs font-bold uppercase mb-2">Nova Solicitação</p><h2 class="text-2xl font-extrabold">${f.origem}</h2><div class="text-slate-500 text-lg my-1">↓</div><h2 class="text-2xl font-extrabold">${f.destino}</h2></div><div class="flex justify-between text-sm mb-6 border-t border-b border-slate-700/50 py-4"><div class="text-center flex-1"><div class="text-slate-500 text-xs">Distância</div><div class="font-bold">${f.distanciaKm}km</div></div><div class="text-center flex-1 border-x border-slate-700/50"><div class="text-slate-500 text-xs">Carga</div><div class="font-bold">${f.pesoToneladas}Ton</div></div><div class="text-center flex-1"><div class="text-slate-500 text-xs">Match</div><div class="font-bold text-amber-400">${f.scoreMatch}</div></div></div><div class="text-center mb-6"><span class="text-green-400 font-extrabold text-3xl">${fm(f.valorSugerido)}</span></div><button onclick="aceitar('${f.id}','${id}')" class="b bg">Aceitar Frete</button>`});return}
+cacheF=r.data;c.classList.remove('hidden');
+jp('buscarRotaMapa',{freteId:cacheF.id},rt=>{
+if(!rt.data)return;var ro=rt.data;if(rL)map.removeLayer(rL);if(mO)map.removeLayer(mO);if(mD)map.removeLayer(mD);
+mO=L.marker([ro.origem.lat,ro.origem.lng]).addTo(map);mD=L.marker([ro.destino.lat,ro.destino.lng],{icon:icD}).addTo(map);
+rL=L.polyline([[ro.origem.lat,ro.origem.lng],[ro.destino.lat,ro.destino.lng]],{color:'#38bdf8',weight:4,dashArray:'10,15'}).addTo(map);map.fitBounds(rL.getBounds(),{padding:[80,80]});
+var p=ro.progresso||0,btn='';
+if(cacheF.status==='alocado')btn=`<button onclick="updSt('${cacheF.id}','coletado','${id}')" class="b bs">Confirmar Coleta</button>`;
+if(cacheF.status==='coletado')btn=`<button onclick="updSt('${cacheF.id}','em_transito','${id}')" class="b ba">Iniciar Trânsito</button>`;
+if(cacheF.status==='em_transito'){btn=`<button onclick="updSt('${cacheF.id}','entregue','${id}')" class="b bg">Finalizar Entrega</button>`;b.classList.remove('hidden')}
+document.getElementById('c-cont').innerHTML=`<div class="flex justify-between items-start mb-3"><div><h3 class="text-lg font-extrabold">${cacheF.origem} → ${cacheF.destino}</h3><div class="text-xs text-slate-400">${cacheF.pesoToneladas}T • ${ts(cacheF.status)}</div></div><div class="text-right"><div class="text-green-400 font-extrabold text-xl">${fm(cacheF.valorSugerido)}</div><div class="w-24 bg-slate-700 rounded-full h-2 mt-2"><div class="bg-sky-500 h-2 rounded-full" style="width:${p}%"></div></div><div class="text-xs text-slate-500 mt-1">${p}%</div></div></div><div class="mt-4">${btn}</div>`})})}
 
-    // Ícones customizados para o mapa
-    var iconeMotorista = L.divIcon({
-      className: '', 
-      html: '<div style="width:20px;height:20px;background:#38bdf8;border:3px solid white;border-radius:50%;box-shadow:0 0 15px rgba(56,189,248,0.8);"></div>', 
-      iconSize: [20, 20], iconAnchor: [10, 10]
-    });
-    var iconeDestino = L.divIcon({
-      className: '', 
-      html: '<div style="width:24px;height:24px;background:#22c55e;border:3px solid white;border-radius:50%;box-shadow:0 0 15px rgba(34,197,94,0.8);"></div>', 
-      iconSize: [24, 24], iconAnchor: [12, 12]
-    });
+function simStep(){if(!cacheF)return;var np=Math.min(100,cacheF.progressoViagem+10);po('simularAvancoViagem',{freteId:cacheF.id,porcentagem:np},r=>{if(!r.ok)return;cacheF.progressoViagem=r.data.progresso;if(mM)mM.setLatLng([r.data.latitude,r.data.longitude]);if(mO&&rL)rL.setLatLngs([[mO.getLatLng().lat,mO.getLatLng().lng],[r.data.latitude,r.data.longitude]]);renderCard(document.getElementById('s-mot').value);if(np>=100)document.getElementById('b-sim').classList.add('hidden')})}
+function aceitar(f,m){if(!confirm('Aceitar carga?'))return;po('aceitarFrete',{freteId:f,motoristaId:m},()=>{t('Alocado!');initMap()})}
+function updSt(f,s){po('atualizarStatusFrete',{freteId:f,novoStatus:s},()=>{t('Atualizado!');initMap()})}
 
-    // ==========================================
-    // HELPERS DE UI
-    // ==========================================
-    function mostrarToast(mensagem, isError) {
-      var toast = document.getElementById('toast');
-      document.getElementById('toast-msg').textContent = mensagem;
-      document.getElementById('toast-icon').textContent = isError ? '❌' : '✅';
-      toast.classList.add('show');
-      setTimeout(function() { toast.classList.remove('show'); }, 3500);
-    }
+function loadDocs(){var e=document.getElementById('i-fdoc').value.trim();if(!e)return;var el=document.getElementById('l-docs');el.innerHTML='<div class="sp py-4"></div>';jp('listarMeusFretes',{embarcador:e},r=>{if(!r.data||!r.data.length){el.innerHTML='Nenhum frete.';return}el.innerHTML=r.data.map(f=>{var ok=f.statusDocumentacao==='emitidos';return`<div class="g p-5 text-left"><div class="flex justify-between mb-3"><span class="font-bold">${f.origem} → ${f.destino} <span class="text-xs text-slate-500">(${f.pesoToneladas}T)</span></span><span class="text-xs px-2 py-1 rounded-full ${ok?'bg-green-900/50 text-green-400':'bg-amber-900/50 text-amber-400'}">${ok?'Docs OK':'Pendente'}</span></div>${ok?`<div class="space-y-2 text-xs bg-slate-800 p-3 rounded-lg font-mono"><div><span class="text-slate-400">NF-e:</span> ${f.chaveNFE.substr(0,20)}...</div><div><span class="text-slate-400">CT-e:</span> ${f.chaveCTE.substr(0,20)}...</div><div><span class="text-slate-400">MDF-e:</span> ${f.chaveMDFE.substr(0,20)}...</div></div>`:`<button onclick="emitDoc('${f.id}')" class="b bs !text-sm !py-3 w-full">Emitir Documentação (NF/CT/MDF)</button>`}</div>`}).join('')})}
 
-    function formatarDinheiro(valor) {
-      return 'R$ ' + Number(valor).toFixed(2).replace('.', ',');
-    }
+function emitDoc(f){po('emitirDocumentacao',{freteId:f},()=>{t('Documentos Emitidos!');loadDocs()})}
 
-    function traduzirStatus(status) {
-      var map = {
-        'aguardando_motorista': 'Aguardando Motorista',
-        'alocado': 'Alocado',
-        'coletado': 'Coletado',
-        'em_transito': 'Em Trânsito',
-        'entregue': 'Entregue',
-        'cancelado': 'Cancelado'
-      };
-      return map[status] || status;
-    }
-
-    // ==========================================
-    // COMUNICAÇÃO COM A API (JSONP E POST)
-    // ==========================================
-    function requisicaoJSONP(acao, parametros, callback) {
-      if (!API_URL) return mostrarToast("URL da API não configurada.", true);
-      parametros.callback = 'jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-      parametros.action = acao;
-      
-      var queryString = Object.keys(parametros).map(function(chave) {
-        return encodeURIComponent(chave) + '=' + encodeURIComponent(parametros[chave]);
-      }).join('&');
-
-      var scriptTag = document.createElement('script');
-      scriptTag.src = API_URL + (API_URL.indexOf('?') >= 0 ? '&' : '?') + queryString;
-      
-      window[parametros.callback] = function(resposta) {
-        delete window[parametros.callback];
-        if (scriptTag.parentNode) scriptTag.parentNode.removeChild(scriptTag);
-        callback(resposta);
-      };
-      document.head.appendChild(scriptTag);
-    }
-
-    function requisicaoPOST(acao, dados, callback) {
-      if (!API_URL) return mostrarToast("URL da API não configurada.", true);
-      dados.action = acao;
-      
-      fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(dados)
-      })
-      .then(function(resposta) { return resposta.json(); })
-      .then(callback)
-      .catch(function(erro) { mostrarToast('Erro de conexão: ' + erro.message, true); });
-    }
-
-    // ==========================================
-    // NAVEGAÇÃO E INICIALIZAÇÃO
-    // ==========================================
-    function mudarTela(nomeTela) {
-      // Esconde todas as telas
-      document.querySelectorAll('.screen').forEach(function(tela) {
-        tela.classList.remove('active');
-      });
-      // Desativa todos os botões
-      document.querySelectorAll('.nav-item').forEach(function(botao) {
-        botao.classList.remove('text-sky-400');
-        botao.classList.add('text-slate-500');
-      });
-      
-      // Mostra a tela alvo e ativa o botão
-      document.getElementById('screen-' + nomeTela).classList.add('active');
-      var botaoAtivo = document.getElementById('nav-' + nomeTela);
-      botaoAtivo.classList.remove('text-slate-500');
-      botaoAtivo.classList.add('text-sky-400');
-
-      // Ajusta o mapa ao abrir a tela (resolve bug do cinza)
-      if (nomeTela === 'map') {
-        setTimeout(function() { 
-          if (mapaLeaflet) mapaLeaflet.invalidateSize();
-          inicializarTelaMotorista();
-        }, 150);
-      }
-      if (nomeTela === 'docs') carregarDocumentos();
-    }
-
-    function inicializarAplicacao(resposta) {
-      if (!resposta.ok) return mostrarToast('Falha crítca ao conectar.', true);
-      DADOS_APP = resposta.data;
-      
-      // Popula os selects do formulário
-      var selOrigem = document.getElementById('sel-origem');
-      var selDestino = document.getElementById('sel-destino');
-      var selVeiculo = document.getElementById('sel-veiculo');
-      var selTipo = document.getElementById('sel-tipo');
-      var selMotorista = document.getElementById('sel-motorista');
-
-      selOrigem.innerHTML = '<option value="" disabled selected>Selecione a origem</option>';
-      selDestino.innerHTML = '<option value="" disabled selected>Selecione o destino</option>';
-      selVeiculo.innerHTML = '<option value="" disabled selected>Tipo de veículo</option>';
-      selTipo.innerHTML = '<option value="" disabled selected>Categoria da carga</option>';
-      selMotorista.innerHTML = '<option value="" disabled selected>Escolha um motorista</option>';
-
-      DADOS_APP.cidades.forEach(function(cidade) {
-        selOrigem.add(new Option(cidade, cidade));
-        selDestino.add(new Option(cidade, cidade));
-      });
-      DADOS_APP.tiposVeiculos.forEach(function(veiculo) { selVeiculo.add(new Option(veiculo, veiculo)); });
-      DADOS_APP.tiposCarga.forEach(function(tipo) { 
-        var nomeFormatado = tipo.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
-        selTipo.add(new Option(nomeFormatado, tipo)); 
-      });
-      DADOS_APP.motoristas.forEach(function(mot) { 
-        selMotorista.add(new Option(mot.nome + ' (' + mot.capacidade + 'T)', mot.id)); 
-      });
-
-      // Esconde loading e mostra app
-      document.getElementById('loading-screen').style.opacity = '0';
-      setTimeout(function() { document.getElementById('loading-screen').style.display = 'none'; }, 300);
-      mudarTela('publish');
-    }
-
-    // ==========================================
-    // LÓGICA DA TELA DE PUBLICAÇÃO (EMBARCADOR)
-    // ==========================================
-    var detalhesAbertos = false;
-    function toggleDetalhes() {
-      detalhesAbertos = !detalhesAbertos;
-      document.getElementById('box-detalhes').classList.toggle('hidden', !detalhesAbertos);
-      document.getElementById('icon-toggle').style.transform = detalhesAbertos ? 'rotate(180deg)' : 'rotate(0deg)';
-      document.getElementById('txt-toggle').textContent = detalhesAbertos ? 'Ocultar detalhes' : 'Adicionar detalhes da carga';
-    }
-
-    function publicarDemanda() {
-      var dados = {
-        embarcador: document.getElementById('inp-empresa').value.trim(),
-        origem: document.getElementById('sel-origem').value,
-        destino: document.getElementById('sel-destino').value,
-        pesoToneladas: Number(document.getElementById('inp-peso').value),
-        cubagemM3: Number(document.getElementById('inp-cubagem').value) || 0,
-        veiculoRequisitado: document.getElementById('sel-veiculo').value,
-        tipoCarga: document.getElementById('sel-tipo').value,
-        urgencia: document.getElementById('sel-urgencia').value
-      };
-
-      if (!dados.embarcador || !dados.origem || !dados.destino || !dados.pesoToneladas) {
-        return mostrarToast('Preencha Empresa, Origem, Destino e Peso.', true);
-      }
-
-      var botao = document.getElementById('btn-publicar');
-      botao.innerHTML = '<div class="spinner"></div>';
-      botao.disabled = true;
-
-      requisicaoPOST('criarFrete', dados, function(resposta) {
-        botao.innerHTML = 'Buscar Motoristas Disponíveis';
-        botao.disabled = false;
-        
-        if (!resposta.ok) return mostrarToast(resposta.msg, true);
-        
-        var resultado = resposta.data;
-        
-        // Atualiza cards de precificação
-        document.getElementById('res-piso').textContent = formatarDinheiro(resultado.precificacao.pisoAntt);
-        document.getElementById('res-valor').textContent = formatarDinheiro(resultado.precificacao.valorSugerido);
-        document.getElementById('res-liquido').textContent = formatarDinheiro(resultado.precificacao.valorLiquidoMotorista);
-
-        // Atualiza lista de motoristas
-        var listaHtml = '';
-        if (resultado.candidatos.length === 0) {
-          listaHtml = '<div class="text-slate-500 text-center py-4">Nenhum motorista compatível neste raio.</div>';
-        } else {
-          resultado.candidatos.forEach(function(mot, index) {
-            listaHtml += `
-              <div class="glass-card p-4 flex justify-between items-center">
-                <div class="flex items-center gap-4">
-                  <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-sky-400 font-bold text-sm">${index + 1}</div>
-                  <div>
-                    <div class="font-bold text-white text-sm">${mot.nome}</div>
-                    <div class="text-xs text-slate-400">${mot.veiculo} • ${mot.distanciaKm}km de distância</div>
-                  </div>
-                </div>
-                <div class="text-right">
-                  <div class="text-amber-400 font-extrabold text-lg">${mot.score}</div>
-                  <div class="text-[10px] text-slate-500 uppercase font-bold">Score</div>
-                </div>
-              </div>`;
-          });
-        }
-        document.getElementById('lista-motoristas').innerHTML = listaHtml;
-        document.getElementById('box-resultados').classList.remove('hidden');
-
-        // Atualiza histórico
-        document.getElementById('inp-filtro-historico').value = dados.embarcador;
-        carregarHistorico();
-        
-        mostrarToast('Demanda publicada e matchings calculados!');
-      });
-    }
-
-    function carregarHistorico() {
-      var empresa = document.getElementById('inp-filtro-historico').value.trim();
-      if (!empresa) return;
-      var elementoLista = document.getElementById('lista-historico');
-      elementoLista.innerHTML = '<div class="spinner py-4"></div>';
-
-      requisicaoJSONP('listarMeusFretes', { embarcador: empresa }, function(resposta) {
-        if (!resposta.data || !resposta.data.length) {
-          elementoLista.innerHTML = 'Nenhuma demanda encontrada.';
-          return;
-        }
-        
-        elementoLista.innerHTML = resposta.data.map(function(frete) {
-          var corStatus = frete.status === 'entregue' ? 'text-green-400 bg-green-900/30' : 'text-sky-400 bg-sky-900/30';
-          return `
-            <div class="glass-card p-4">
-              <div class="flex justify-between items-start mb-2">
-                <div>
-                  <span class="font-bold text-white">${frete.origem} → ${frete.destino}</span>
-                  <div class="text-xs text-slate-500 mt-0.5">${frete.pesoToneladas}T • ${frete.veiculoRequisitado}</div>
-                </div>
-                <span class="text-[10px] font-bold px-2 py-1 rounded-full ${corStatus} uppercase">${traduzirStatus(frete.status)}</span>
-              </div>
-              <div class="flex justify-between items-end">
-                <span class="text-xs text-slate-500">${frete.distanciaKm} km</span>
-                <span class="text-green-400 font-extrabold text-lg">${formatarDinheiro(frete.valorSugerido)}</span>
-              </div>
-            </div>`;
-        }).join('');
-      });
-    }
-
-    // ==========================================
-    // LÓGICA DO MAPA E MOTORISTA
-    // ==========================================
-    function inicializarMapa() {
-      if (mapaLeaflet) return;
-      mapaLeaflet = L.map('map', { zoomControl: false, attributionControl: false }).setView([-23.5, -46.6], 6);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(mapaLeaflet);
-    }
-
-    function inicializarTelaMotorista() {
-      inicializarMapa();
-      var idMotorista = document.getElementById('sel-motorista').value;
-      if (!idMotorista) return;
-
-      requisicaoJSONP('buscarPainelMotorista', { motoristaId: idMotorista }, function(resposta) {
-        if (!resposta.ok) return;
-        var painel = resposta.data;
-        
-        // Atualiza Badge de Status
-        var badge = document.getElementById('badge-status');
-        if (painel.disponivel) {
-          badge.textContent = '🟢 ONLINE';
-          badge.className = 'text-xs font-bold px-3 py-1.5 rounded-full bg-green-900/50 text-green-400 whitespace-nowrap';
-        } else {
-          badge.textContent = '🔴 OCUPADO';
-          badge.className = 'text-xs font-bold px-3 py-1.5 rounded-full bg-red-900/50 text-red-400 whitespace-nowrap';
-        }
-
-        // Centraliza mapa no motorista
-        mapaLeaflet.setView([painel.latitude, painel.longitude], 7);
-        if (marcadorMotorista) mapaLeaflet.removeLayer(marcadorMotorista);
-        marcadorMotorista = L.marker([painel.latitude, painel.longitude], { icon: iconeMotorista })
-          .addTo(mapaLeaflet)
-          .bindPopup('<b>' + painel.nome + '</b><br>Score: ' + painel.scoreMedio);
-
-        renderizarCardInferior(idMotorista);
-      });
-    }
-
-    function renderizarCardInferior(idMotorista) {
-      var cardContainer = document.getElementById('card-flutuante');
-      var botaoSimulacao = document.getElementById('btn-simulacao');
-      botaoSimulacao.classList.add('hidden');
-
-      requisicaoJSONP('buscarFreteAtivo', { motoristaId: idMotorista }, function(resposta) {
-        if (!resposta.ok || !resposta.data) {
-          // Sem frete ativo -> Buscar ofertas (Estilo Uber)
-          requisicaoJSONP('buscarOfertasMotorista', { motoristaId: idMotorista }, function(resOfertas) {
-            if (!resOfertas.data || !resOfertas.data.length) {
-              cardContainer.classList.add('hidden');
-              return;
-            }
-            cardContainer.classList.remove('hidden');
-            var melhorOferta = resOfertas.data[0]; // Pega a de maior score
-            
-            document.getElementById('conteudo-card-flutuante').innerHTML = `
-              <div class="text-center mb-6">
-                <p class="text-slate-400 text-xs font-bold uppercase mb-2">Nova Solicitação de Carga</p>
-                <h2 class="text-2xl font-extrabold text-white">${melhorOferta.origem}</h2>
-                <div class="text-slate-500 text-lg my-1">↓</div>
-                <h2 class="text-2xl font-extrabold text-white">${melhorOferta.destino}</h2>
-              </div>
-              <div class="flex justify-between text-sm mb-6 border-t border-b border-slate-700/50 py-4">
-                <div class="text-center flex-1">
-                  <div class="text-slate-500 text-xs">Distância</div>
-                  <div class="font-bold text-white">${melhorOferta.distanciaKm} km</div>
-                </div>
-                <div class="text-center flex-1 border-x border-slate-700/50">
-                  <div class="text-slate-500 text-xs">Carga</div>
-                  <div class="font-bold text-white">${melhorOferta.pesoToneladas} Ton</div>
-                </div>
-                <div class="text-center flex-1">
-                  <div class="text-slate-500 text-xs">Match</div>
-                  <div class="font-bold text-amber-400">${melhorOferta.scoreMatch}</div>
-                </div>
-              </div>
-              <div class="text-center mb-6">
-                <span class="text-green-400 font-extrabold text-3xl">${formatarDinheiro(melhorOferta.valorSugerido)}</span>
-              </div>
-              <button onclick="aceitarOferta('${melhorOferta.id}', '${idMotorista}')" class="btn-uber-primary">
-                Aceitar Frete
-              </button>
-            `;
-          });
-          return;
-        }
-
-        // Tem frete ativo -> Mostrar status da viagem
-        freteAtivoCache = resposta.data;
-        cardContainer.classList.remove('hidden');
-
-        requisicaoJSONP('buscarRotaMapa', { freteId: freteAtivoCache.id }, function(resRota) {
-          if (!resRota.data) return;
-          var rota = resRota.data;
-
-          // Limpa mapa anterior
-          if (linhaRota) mapaLeaflet.removeLayer(linhaRota);
-          if (marcadorOrigem) mapaLeaflet.removeLayer(marcadorOrigem);
-          if (marcadorDestino) mapaLeaflet.removeLayer(marcadorDestino);
-
-          // Desenha nova rota
-          marcadorOrigem = L.marker([rota.origem.lat, rota.origem.lng]).addTo(mapaLeaflet).bindPopup('Coleta: ' + freteAtivoCache.origem);
-          marcadorDestino = L.marker([rota.destino.lat, rota.destino.lng], { icon: iconeDestino }).addTo(mapaLeaflet).bindPopup('Entrega: ' + freteAtivoCache.destino);
-          linhaRota = L.polyline([[rota.origem.lat, rota.origem.lng], [rota.destino.lat, rota.destino.lng]], { color: '#38bdf8', weight: 4, dashArray: '10, 15' }).addTo(mapaLeaflet);
-          
-          mapaLeaflet.fitBounds(linhaRota.getBounds(), { padding: [80, 80] });
-
-          var progresso = rota.progresso || 0;
-          var botoesAcaoHtml = '';
-
-          if (freteAtivoCache.status === 'alocado') {
-            botoesAcaoHtml = `<button onclick="atualizarStatusFrete('${freteAtivoCache.id}', 'coletado', '${idMotorista}')" class="btn-uber-primary !bg-sky-500 !shadow-sky-500/40">Confirmar Coleta</button>`;
-          } else if (freteAtivoCache.status === 'coletado') {
-            botoesAcaoHtml = `<button onclick="
+document.addEventListener('DOMContentLoaded',function(){if(A)jp('getDadosIniciais',{},init);else document.getElementById('ld').innerHTML='<div class="text-red-400 font-bold text-center px-4">Erro: config.js ausente.</div>'});
+</script>
+</body>
+</html>
