@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LogiFreight — Demo Uberizado</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { background: #0f172a; font-family: 'Inter', sans-serif; }
+    .hide { display: none !important; }
+    #map { height: 100%; width: 100%; z-index: 1; }
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #1e293b; border-top: 1px solid #334155; z-index: 50; }
+    .nav-btn { transition: all 0.2s; }
+    .nav-btn.active { color: #38bdf8; }
+    .nav-btn.active svg { fill: #38bdf8; }
+    .card-glass { background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(5px); border: 1px solid #334155; }
+    .loader { border: 3px solid #334155; border-top: 3px solid #38bdf8; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #22c55e; color: white; padding: 12px 24px; border-radius: 8px; font-weight: 600; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body class="text-slate-200 pb-20 overflow-x-hidden">
+
+  <div id="toast" class="toast"></div>
+
+  <!-- TELA: CONFIG API -->
+  <div id="screen-setup" class="min-h-screen flex items-center justify-center p-4">
+    <div class="card-glass rounded-2xl p-8 max-w-md w-full text-center">
+      <h1 class="text-3xl font-bold text-sky-400 mb-2">Logi<span class="text-amber-400">Freight</span></h1>
+      <p class="text-slate-400 text-sm mb-6">Demo Uberizado de Fretes</p>
+      <input type="text" id="api-url" placeholder="Cole a URL do Apps Script aqui..." class="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-sm mb-4 focus:outline-none focus:border-sky-500">
+      <button onclick="salvarEIniciar()" class="w-full bg-sky-500 hover:bg-sky-600 text-slate-900 font-bold py-3 rounded-lg transition">Conectar e Iniciar</button>
+    </div>
+  </div>
+
+  <!-- TELA: EMBARCADOR -->
+  <div id="screen-shipper" class="hide p-4 pt-6 max-w-lg mx-auto">
+    <h2 class="text-xl font-bold mb-4">Publicar Frete</h2>
+    
+    <div class="space-y-3 mb-4">
+      <input type="text" id="f-emb" placeholder="Nome da Empresa" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm">
+      <div class="grid grid-cols-2 gap-3">
+        <select id="f-ori" class="bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm"></select>
+        <select id="f-dst" class="bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm"></select>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <input type="number" id="f-peso" placeholder="Peso (kg)" class="bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm">
+        <select id="f-op" class="bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm"></select>
+        <select id="f-urg" class="bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm">
+          <option value="padrao">Padrão</option>
+          <option value="urgente">Urgente</option>
+          <option value="expresso">Expresso</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="btn-publicar" onclick="criarFrete()" class="w-full bg-sky-500 hover:bg-sky-600 text-slate-900 font-bold py-3 rounded-lg mb-6">Calcular e Publicar</button>
+
+    <!-- RESULTADO -->
+    <div id="res-shipper" class="hide space-y-4 mb-6">
+      <div class="card-glass rounded-xl p-4">
+        <h3 class="text-sky-400 font-bold text-sm mb-3 uppercase">Precificação Dinâmica</h3>
+        <div class="grid grid-cols-2 gap-4 text-center">
+          <div><div class="text-slate-400 text-xs">Piso ANTT</div><div class="text-lg font-bold text-slate-300" id="v-piso">-</div></div>
+          <div><div class="text-slate-400 text-xs">Sugerido</div><div class="text-lg font-bold text-green-400" id="v-sugerido">-</div></div>
+          <div><div class="text-slate-400 text-xs">Fator Demanda</div><div class="text-lg font-bold text-amber-400" id="v-demanda">-</div></div>
+          <div><div class="text-slate-400 text-xs">Líquido Motorista</div><div class="text-lg font-bold text-sky-400" id="v-liquido">-</div></div>
+        </div>
+      </div>
+      <div class="card-glass rounded-xl p-4">
+        <h3 class="text-sky-400 font-bold text-sm mb-3 uppercase">Top 3 Motoristas (Match IA)</h3>
+        <div id="lista-match" class="space-y-2"></div>
+      </div>
+    </div>
+
+    <h2 class="text-xl font-bold mb-3 mt-8">Meus Fretes</h2>
+    <input type="text" id="fil-emb" placeholder="Filtrar por empresa..." class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm mb-3" onkeydown="if(event.key==='Enter')listarFretes()">
+    <div id="lista-fretes" class="space-y-3 text-slate-400 text-sm text-center pt-4">Publique um frete para ver aqui.</div>
+  </div>
+
+  <!-- TELA: MOTORISTA (MAPA) -->
+  <div id="screen-driver" class="hide">
+    <!-- Header Fixo no Mapa -->
+    <div class="fixed top-0 left-0 right-0 z-10 p-4">
+      <div class="card-glass rounded-xl p-3 flex justify-between items-center max-w-lg mx-auto">
+        <div>
+          <div class="text-xs text-slate-400">Selecionado:</div>
+          <select id="sel-mot" onchange="carregarMapa()" class="bg-transparent font-bold text-sky-400 outline-none"></select>
+        </div>
+        <div id="status-motorista" class="text-xs font-bold px-3 py-1 rounded-full bg-slate-700 text-slate-400">OFFLINE</div>
+      </div>
+    </div>
+
+    <!-- Mapa -->
+    <div id="map" class="w-full h-screen"></div>
+
+    <!-- Card Inferior (Estilo Uber) -->
+    <div id="card-inferior" class="fixed bottom-20 left-4 right-4 z-10 max-w-lg mx-auto hide">
+      <div class="card-glass rounded-2xl p-5 shadow-2xl">
+        <div id="conteudo-inferior"></div>
+      </div>
+    </div>
+
+    <!-- Botão Simular -->
+    <button id="btn-simular" onclick="simularPasso()" class="hide fixed bottom-44 right-4 z-10 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold py-3 px-5 rounded-full shadow-lg flex items-center gap-2 max-w-lg mx-auto" style="left: 50%; transform: translateX(-50%);">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      Avançar Viagem (+10%)
+    </button>
+  </div>
+
+  <!-- MENU INFERIOR -->
+  <div class="bottom-nav flex justify-around py-2 px-4 max-w-lg mx-auto">
+    <button onclick="showScreen('shipper')" class="nav-btn flex flex-col items-center text-slate-400 p-2 active" id="nav-shipper">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+      <span class="text-xs mt-1">Embarcar</span>
+    </button>
+    <button onclick="showScreen('driver')" class="nav-btn flex flex-col items-center text-slate-400 p-2" id="nav-driver">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+      <span class="text-xs mt-1">Motorista</span>
+    </button>
+  </div>
+
+  <script>
+    var API = localStorage.getItem('lf_api') || '';
+    var APP = {};
+    var map, markerOrigem, markerDestino, markerMotorista, routeLine;
+    var freteAtivoCache = null;
+
+    function toast(m) { var t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 3000); }
+    function fm(v) { return 'R$ ' + Number(v).toFixed(2).replace('.', ','); }
+    function fms(s) { var m={aguardando_match:'Aguardando',alocado:'Alocado',coleta_confirmada:'Coletado',em_transito:'Em Trânsito',concluido:'Concluído',cancelado:'Cancelado'}; return m[s]||s; }
+    
+    function jsonp(action, params, cb) {
+      var url = API; if(!url) return;
+      params.callback = 'cb_'+Date.now(); params.action = action;
+      var qs = Object.keys(params).map(k => encodeURIComponent(k)+'='+encodeURIComponent(params[k])).join('&');
+      var s = document.createElement('script');
+      s.src = url + (url.indexOf('?')>=0?'&':'?') + qs;
+      window[params.callback] = (data) => { delete window[params.callback]; s.remove(); cb(data); };
+      document.head.appendChild(s);
+    }
+
+    function post(action, data, cb) {
+      data.action = action;
+      fetch(API, { method: 'POST', headers: {'Content-Type':'text/plain'}, body: JSON.stringify(data) })
+        .then(r => r.json()).then(cb).catch(e => toast('Erro: '+e.message));
+    }
+
+    function salvarEIniciar() {
+      API = document.getElementById('api-url').value.trim();
+      if(!API) return alert('Cole a URL');
+      localStorage.setItem('lf_api', API);
+      jsonp('getDadosIniciais', {}, initApp);
+    }
+
+    function initApp(r) {
+      if(!r.ok) return alert('Erro ao conectar: ' + r.msg);
+      APP = r.data;
+      var so = document.getElementById('f-ori'), sd = document.getElementById('f-dst'), sop = document.getElementById('f-op'), sm = document.getElementById('sel-mot');
+      so.innerHTML = '<option value="">Origem</option>'; sd.innerHTML = '<option value="">Destino</option>'; 
+      sop.innerHTML = '<option value="">Tipo</option>'; sm.innerHTML = '';
+      APP.cidades.forEach(c => { so.add(new Option(c,c)); sd.add(new Option(c,c)); });
+      APP.tiposOperacao.forEach(t => { var l=t.replace(/_/g,' '); sop.add(new Option(l,t)); });
+      APP.motoristas.forEach(m => { sm.add(new Option(m.nome+' ('+m.placa+')', m.id)); });
+      
+      document.getElementById('screen-setup').classList.add('hide');
+      showScreen('shipper');
+    }
+
+    function showScreen(s) {
+      document.querySelectorAll('[id^="screen-"]').forEach(e => e.classList.add('hide'));
+      document.getElementById('screen-'+s).classList.remove('hide');
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('nav-'+s).classList.add('active');
+      if(s === 'driver') setTimeout(initMap, 100);
+    }
+
+    function criarFrete() {
+      var d = {
+        embarcador: document.getElementById('f-emb').value,
+        origemCidade: document.getElementById('f-ori').value,
+        destinoCidade: document.getElementById('f-dst').value,
+        pesoKg: Number(document.getElementById('f-peso').value),
+        tipoOperacao: document.getElementById('f-op').value,
+        urgencia: document.getElementById('f-urg').value,
+        tipoVeiculo: 'Truck'
+      };
+      if(!d.embarcador || !d.origemCidade || !d.destinoCidade || !d.pesoKg) return toast('Preencha todos os campos');
+      
+      var btn = document.getElementById('btn-publicar');
+      btn.innerHTML = '<div class="loader mx-auto"></div>'; btn.disabled = true;
+      
+      post('criarFrete', d, r => {
+        btn.textContent = 'Calcular e Publicar'; btn.disabled = false;
+        if(!r.ok) return toast(r.msg);
+        var res = r.data;
+        document.getElementById('v-piso').textContent = fm(res.precificacao.precoPisoAntt);
+        document.getElementById('v-sugerido').textContent = fm(res.precificacao.precoSugerido);
+        document.getElementById('v-demanda').textContent = (res.fatorDemanda*100)+'%';
+        document.getElementById('v-liquido').textContent = fm(res.precificacao.valorLiquidoMotorista);
+        
+        document.getElementById('lista-match').innerHTML = res.candidatos.map((c,i) => 
+          `<div class="flex justify-between items-center bg-slate-800 p-3 rounded-lg">
+            <div>
+              <div class="font-bold text-slate-200">${i+1}. ${c.nome} <span class="text-sky-400 text-xs">#${c.id}</span></div>
+              <div class="text-xs text-slate-400">${c.veiculo} | ${c.distanciaKm}km de distância</div>
+            </div>
+            <div class="text-amber-400 font-bold text-lg">${c.score}</div>
+          </div>`
+        ).join('');
+        
+        document.getElementById('res-shipper').classList.remove('hide');
+        document.getElementById('fil-emb').value = d.embarcador;
+        listarFretes();
+        toast('Frete Publiado com Sucesso!');
+      });
+    }
+
+    function listarFretes() {
+      var emb = document.getElementById('fil-emb').value; if(!emb) return;
+      var el = document.getElementById('lista-fretes');
+      el.innerHTML = '<div class="loader mx-auto py-4"></div>';
+      jsonp('listarMeusFretes', {embarcador: emb}, r => {
+        if(!r.data || !r.data.length) { el.innerHTML = 'Nenhum frete.'; return; }
+        el.innerHTML = r.data.map(f => 
+          `<div class="card-glass rounded-xl p-4 text-left">
+            <div class="flex justify-between mb-2">
+              <span class="font-bold text-slate-200">${f.origemCidade} → ${f.destinoCidade}</span>
+              <span class="text-xs px-2 py-1 rounded-full bg-slate-700 ${f.status==='concluido'?'text-green-400':f.status==='em_transito'?'text-amber-400':'text-sky-400'}">${fms(f.status)}</span>
+            </div>
+            <div class="flex justify-between text-xs text-slate-400">
+              <span>${f.distanciaKm}km | ${f.pesoKg}kg</span>
+              <span class="text-green-400 font-bold text-base">${fm(f.precoSugerido)}</span>
+            </div>
+          </div>`
+        ).join('');
+      });
+    }
+
+    // --- LÓGICA DO MOTORISTA E MAPA ---
+    var customIcon = L.divIcon({ className: 'custom-icon', html: '<div style="background:#38bdf8;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(56,189,248,0.8)"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
+    var destinoIcon = L.divIcon({ className: 'custom-icon', html: '<div style="background:#22c55e;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(34,197,94,0.8)"></div>', iconSize: [20, 20], iconAnchor: [10, 10] });
+
+    function initMap() {
+      if(map) return map.invalidateSize();
+      map = L.map('map', { zoomControl: false }).setView([-23.5, -46.6], 7);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '©OpenStreetMap' }).addTo(map);
+      carregarMapa();
+    }
+
+    function carregarMapa() {
+      var mid = document.getElementById('sel-mot').value; if(!mid) return;
+      
+      jsonp('getPainelMotorista', {motoristaId: mid}, r => {
+        if(!r.ok) return;
+        var m = r.data;
+        var stEl = document.getElementById('status-motorista');
+        stEl.textContent = m.disponivel ? '🟢 ONLINE' : '🔴 OFFLINE';
+        stEl.className = 'text-xs font-bold px-3 py-1 rounded-full ' + (m.disponivel ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400');
+        
+        map.setView([m.lat, m.lng], 8);
+        if(markerMotorista) map.removeLayer(markerMotorista);
+        markerMotorista = L.marker([m.lat, m.lng], {icon: customIcon}).addTo(map).bindPopup('<b>'+m.nome+'</b><br>Score: '+m.score);
+        
+        renderCardInferior(mid);
+      });
+    }
+
+    function renderCardInferior(mid) {
+      var card = document.getElementById('card-inferior');
+      var btnSim = document.getElementById('btn-simular');
+      btnSim.classList.add('hide');
+      
+      jsonp('getFreteAtivo', {motoristaId: mid}, r => {
+        if(!r.ok || !r.data) {
+          // Mostrar Ofertas
+          jsonp('listarOfertas', {motoristaId: mid}, res => {
+            if(!res.data || !res.data.length) {
+              card.classList.add('hide');
+              return;
+            }
+            card.classList.remove('hide');
+            var f = res.data[0]; // Melhor oferta
+            document.getElementById('conteudo-inferior').innerHTML = 
+              `<h3 class="text-lg font-bold text-sky-400 mb-1">Oferta Disponível</h3>
+               <div class="text-slate-300 font-bold mb-2">${f.origemCidade} → ${f.destinoCidade}</div>
+               <div class="flex justify-between items-center">
+                 <div class="text-xs text-slate-400">${f.distanciaKm}km | Match: <span class="text-amber-400 font-bold">${f.scoreMatch}</span></div>
+                 <div class="text-green-400 font-bold text-xl">${fm(f.precoSugerido)}</div>
+               </div>
+               <button onclick="aceitarFrete('${f.id}','${mid}')" class="w-full bg-green-500 hover:bg-green-600 text-slate-900 font-bold py-3 rounded-lg mt-4">Aceitar Frete</button>`;
+          });
+          return;
+        }
+
+        // Tem frete ativo
+        freteAtivoCache = r.data;
+        card.classList.remove('hide');
+        
+        jsonp('getRotaMapa', {freteId: r.data.id}, res => {
+          if(!res.data) return;
+          var rt = res.data;
+          
+          // Desenhar Rota
+          if(routeLine) map.removeLayer(routeLine);
+          if(markerOrigem) map.removeLayer(markerOrigem);
+          if(markerDestino) map.removeLayer(markerDestino);
+          
+          markerOrigem = L.marker([rt.origem.lat, rt.origem.lng]).addTo(map).bindPopup('Origem: '+r.data.origemCidade);
+          markerDestino = L.marker([rt.destino.lat, rt.destino.lng], {icon: destinoIcon}).addTo(map).bindPopup('Destino: '+r.data.destinoCidade);
+          routeLine = L.polyline([[rt.origem.lat, rt.origem.lng], [rt.destino.lat, rt.destino.lng]], {color: '#38bdf8', weight: 4, dashArray: '10, 10'}).addTo(map);
+          
+          map.fitBounds(routeLine.getBounds(), {padding: [50, 50]});
+
+          var progresso = rt.progresso || 0;
+          
+          var botoes = '';
+          if(r.data.status === 'alocado') botoes = `<button onclick="mudSt('${r.data.id}','confirmarColeta','${mid}')" class="flex-1 bg-sky-500 text-slate-900 font-bold py-3 rounded-lg">Confirmar Coleta</button>`;
+          if(r.data.status === 'coleta_confirmada') botoes = `<button onclick="mudSt('${r.data.id}','confirmarEmTransito','${mid}')" class="flex-1 bg-amber-500 text-slate-900 font-bold py-3 rounded-lg">Iniciar Trânsito</button>`;
+          if(r.data.status === 'em_transito') {
+            botoes = `<button onclick="mudSt('${r.data.id}','confirmarEntrega','${mid}')" class="flex-1 bg-green-500 text-slate-900 font-bold py-3 rounded-lg">Finalizar Entrega</button>`;
+            btnSim.classList.remove('hide');
+          }
+
+          document.getElementById('conteudo-inferior').innerHTML = 
+            `<div class="flex justify-between items-start mb-3">
+              <div>
+                <h3 class="text-lg font-bold text-slate-200">${r.data.origemCidade} → ${r.data.destinoCidade}</h3>
+                <div class="text-xs text-slate-400">${r.data.distanciaKm}km | ${fms(r.data.status)}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-green-400 font-bold text-xl">${fm(r.data.precoSugerido)}</div>
+                <div class="w-full bg-slate-700 rounded-full h-2 mt-2 w-24">
+                  <div class="bg-sky-500 h-2 rounded-full" style="width: ${progresso}%"></div>
+                </div>
+                <div class="text-xs text-slate-500 mt-1">${progresso}% concluído</div>
+              </div>
+            </div>
+            <div class="flex gap-2">${botoes}</div>`;
+        });
+      });
+    }
+
+    function simularPasso() {
+      if(!freteAtivoCache) return;
+      var novaPorc = Math.min(100, freteAtivoCache.progresso + 10);
+      post('simularViagem', {freteId: freteAtivoCache.id, porcentagem: novaPorc}, r => {
+        if(!r.ok) return;
+        freteAtivoCache.progresso = r.data.progresso;
+        
+        if(markerMotorista) markerMotorista.setLatLng([r.data.lat, r.data.lng]);
+        if(markerOrigem && markerDestino) {
+             var ll = [[markerOrigem.getLatLng().lat, markerOrigem.getLatLng().lng], [r.data.lat, r.data.lng]];
+             if(routeLine) routeLine.setLatLngs(ll);
+        }
+        renderCardInferior(document.getElementById('sel-mot').value);
+        if(novaPorc >= 100) document.getElementById('btn-simular').classList.add('hide');
+      });
+    }
+
+    function aceitarFrete(fid, mid) {
+      if(!confirm('Aceitar este frete?')) return;
+      post('aceitarFrete', {freteId: fid, motoristaId: mid}, () => { toast('Frete Aceito!'); carregarMapa(); });
+    }
+
+    function mudSt(fid, fn, mid) {
+      post(fn, {freteId: fid}, () => { toast('Status Atualizado!'); carregarMapa(); });
+    }
+
+    // Init
+    if(API && !document.getElementById('api-url').value) {
+      document.getElementById('api-url').value = API;
+      jsonp('getDadosIniciais', {}, initApp);
+    }
+  </script>
+</body>
+</html>
